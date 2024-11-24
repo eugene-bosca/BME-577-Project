@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Conv2D, MaxPooling2D, Flatten, LSTM, Dense, Concatenate
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.utils import plot_model
 from sklearn.preprocessing import LabelEncoder
@@ -88,5 +88,3 @@ plt.title('Confusion Matrix for LSTM Model')
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
 plt.show()
-
-##### 2) CNN MODEL #####
