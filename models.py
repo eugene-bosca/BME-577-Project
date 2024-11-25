@@ -18,61 +18,47 @@ train_labels = base_path + "train/y_train.txt"
 test_labels = base_path + "test/y_test.txt"
 # activity_labels_path = base_path + "activity_labels.txt"
 
-# # loading the data
-# X_train = pd.read_csv(train_features, delim_whitespace=True, header=None).values
-y_train = pd.read_csv(train_labels, header=None).values.ravel()
-# X_test = pd.read_csv(test_features, delim_whitespace=True, header=None).values
-y_test = pd.read_csv(test_labels, header=None).values.ravel()
-
-# print(f"X_train shape: {X_train.shape}")
+# loading the data
+# needed the raw data as it had the timestepped data
+X_train, y_train, X_test, y_test = load_dataset()
 
 # encoding the activity labels
 label_encoder = LabelEncoder()
 y_train_encoded = label_encoder.fit_transform(y_train)
 y_test_encoded = label_encoder.transform(y_test)
 
-# # one-hot encoding for the labels
-# y_train_one_hot = to_categorical(y_train_encoded)
-# y_test_one_hot = to_categorical(y_test_encoded)
-
-# # reshaping data for LSTM amd CNN (samples, timesteps, features)
-# X_train = X_train.reshape((X_train.shape[0], 1, X_train.shape[1]))
-# X_test = X_test.reshape((X_test.shape[0], 1, X_test.shape[1]))
-
 ##### 1) LSTM MODEL #####
-def lstm_model(X_train, y_train_one_hot, X_test, y_test_one_hot, y_test_encoded):
+def lstm_model(X_train, y_train, X_test, y_test):
 
-    # defining the LSTM Model
+    n_timesteps, n_features, n_outputs = X_train.shape[1], X_train.shape[2], y_train.shape[1]
+
+    # Define the LSTM Model
     model = Sequential([
-        Input(shape=(X_train.shape[1], X_train.shape[2])), 
+        Input(shape=(n_timesteps, n_features)), 
         LSTM(128, return_sequences=True),
         Dropout(0.5),
         LSTM(64, return_sequences=False),
         Dropout(0.5),
         Dense(64, activation='relu'),
-        Dense(y_train_one_hot.shape[1], activation='softmax')  # number of classes as output layer
+        Dense(n_outputs, activation='softmax')  # Output layer
     ])
 
-    # plotting the model
-    # plot_model(model, show_shapes=True, show_layer_names=True)
-
-    # compiling the model
+    # Compiling the model
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-    # training the model
-    history = model.fit(X_train, y_train_one_hot, epochs=10, batch_size=32, validation_data=(X_test, y_test_one_hot))
+    # Training the model
+    history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_test, y_test))
 
-    # evaluating the model
-    test_loss, test_accuracy = model.evaluate(X_test, y_test_one_hot, verbose=0)
+    # Evaluating the model
+    test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
     print(f"Test Accuracy: {test_accuracy:.2f}")
 
-    # printing classification report
+    # Classification Report
     y_pred = np.argmax(model.predict(X_test), axis=1)
-
-    target_names = [str(cls) for cls in label_encoder.classes_] # converting integer class names to strings
+    target_names = [str(cls) for cls in label_encoder.classes_]
     print(classification_report(y_test_encoded, y_pred, target_names=target_names))
 
-    # plotting training and validation loss
+    # Plotting training and validation loss
     plt.figure(figsize=(10, 6))
     plt.plot(history.history['loss'], label='Training Loss')
     plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -82,7 +68,7 @@ def lstm_model(X_train, y_train_one_hot, X_test, y_test_one_hot, y_test_encoded)
     plt.legend()
     plt.show()
 
-    # plotting confusion matrix 
+    # Plotting confusion matrix 
     cm = confusion_matrix(y_test_encoded, y_pred)
 
     plt.figure(figsize=(8, 6))
@@ -156,9 +142,7 @@ def cnn_lstm_model(X_train, y_train, X_test, y_test):
     plt.ylabel('Actual')
     plt.show()
 
-# lstm_model(X_train, y_train_one_hot, X_test, y_test_one_hot, y_test_encoded)
+lstm_model(X_train, y_train, X_test, y_test)
 
-# Needed the raw data as it had the timestepped data
-X_train, y_train, X_test, y_test = load_dataset()
-cnn_lstm_model(X_train, y_train, X_test, y_test)
+# cnn_lstm_model(X_train, y_train, X_test, y_test)
 
