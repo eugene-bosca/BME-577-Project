@@ -1,0 +1,7 @@
+#venv
+/577-project
+
+#dataset
+/UCI HAR Dataset
+
+__pycache__/
