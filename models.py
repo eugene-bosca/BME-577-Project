@@ -10,31 +10,15 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix
 from utils import load_dataset
 
-# # data preparation from project structure
-base_path = "UCI HAR Dataset/"
-# train_features = base_path + "train/X_train.txt"
-train_labels = base_path + "train/y_train.txt"
-# test_features = base_path + "test/X_test.txt"
-test_labels = base_path + "test/y_test.txt"
-# activity_labels_path = base_path + "activity_labels.txt"
-
 # loading the data
-# needed the raw data as it had the timestepped data
 X_train, y_train, X_test, y_test = load_dataset()
-
-# encoding the activity labels
-label_encoder = LabelEncoder()
-y_train_encoded = label_encoder.fit_transform(y_train)
-y_test_encoded = label_encoder.transform(y_test)
+n_timesteps, n_features, n_outputs = X_train.shape[1], X_train.shape[2], y_train.shape[1]
 
 ##### 1) LSTM MODEL #####
 def lstm_model(X_train, y_train, X_test, y_test):
-
-    n_timesteps, n_features, n_outputs = X_train.shape[1], X_train.shape[2], y_train.shape[1]
-
     # Define the LSTM Model
     model = Sequential([
-        Input(shape=(n_timesteps, n_features)), 
+        Input(shape=(n_timesteps, n_features)),
         LSTM(128, return_sequences=True),
         Dropout(0.5),
         LSTM(64, return_sequences=False),
@@ -43,20 +27,20 @@ def lstm_model(X_train, y_train, X_test, y_test):
         Dense(n_outputs, activation='softmax')  # Output layer
     ])
 
-    # Compiling the model
+    # Compile the model
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-    # Training the model
+    # Train the model
     history = model.fit(X_train, y_train, epochs=10, batch_size=32, validation_data=(X_test, y_test))
 
-    # Evaluating the model
+    # Evaluate the model
     test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
     print(f"Test Accuracy: {test_accuracy:.2f}")
 
     # Classification Report
     y_pred = np.argmax(model.predict(X_test), axis=1)
-    target_names = [str(cls) for cls in label_encoder.classes_]
-    print(classification_report(y_test_encoded, y_pred, target_names=target_names))
+    target_names = [str(cls) for cls in range(y_train.shape[1])]
+    print(classification_report(np.argmax(y_test, axis=1), y_pred, target_names=target_names))
 
     # Plotting training and validation loss
     plt.figure(figsize=(10, 6))
@@ -68,11 +52,10 @@ def lstm_model(X_train, y_train, X_test, y_test):
     plt.legend()
     plt.show()
 
-    # Plotting confusion matrix 
-    cm = confusion_matrix(y_test_encoded, y_pred)
-
+    # Plotting confusion matrix
+    cm = confusion_matrix(np.argmax(y_test, axis=1), y_pred)
     plt.figure(figsize=(8, 6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=range(y_train.shape[1]), yticklabels=range(y_train.shape[1]))
     plt.title('Confusion Matrix for LSTM Model')
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
@@ -85,9 +68,7 @@ def cnn_model():
 
 ##### 3) CNN-LSTM MODEL #####
 def cnn_lstm_model(X_train, y_train, X_test, y_test):
-    n_timesteps, n_features, n_outputs = X_train.shape[1], X_train.shape[2], y_train.shape[1]
 
-    print(n_timesteps, n_features, n_outputs)
     X_train = X_train.reshape((X_train.shape[0], X_train.shape[1], n_features))
     X_test = X_test.reshape((X_test.shape[0], X_train.shape[1], n_features))
 
@@ -120,8 +101,8 @@ def cnn_lstm_model(X_train, y_train, X_test, y_test):
 
     # Printing classification report
     y_pred = np.argmax(model.predict(X_test), axis=1)
-    target_names = [str(cls) for cls in label_encoder.classes_]
-    print(classification_report(y_test_encoded, y_pred, target_names=target_names))
+    target_names = [str(cls) for cls in range(y_train.shape[1])]
+    print(classification_report(np.argmax(y_test, axis=1), y_pred, target_names=target_names))
 
     # Plotting training and validation loss
     plt.figure(figsize=(10, 6))
@@ -134,15 +115,16 @@ def cnn_lstm_model(X_train, y_train, X_test, y_test):
     plt.show()
 
     # Plotting confusion matrix
-    cm = confusion_matrix(y_test_encoded, y_pred)
+    cm = confusion_matrix(np.argmax(y_test, axis=1), y_pred)
     plt.figure(figsize=(8, 6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=range(y_train.shape[1]), yticklabels=range(y_train.shape[1]))
     plt.title('Confusion Matrix for CNN-LSTM Model')
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
     plt.show()
 
-lstm_model(X_train, y_train, X_test, y_test)
+# RUNNING THE MODELS
+# lstm_model(X_train, y_train, X_test, y_test)
 
-# cnn_lstm_model(X_train, y_train, X_test, y_test)
+cnn_lstm_model(X_train, y_train, X_test, y_test)
 
