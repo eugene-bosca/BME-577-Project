@@ -8,6 +8,10 @@ def load_file(filepath):
 
 def load_data(group, prefix=''):
     """Load data for a given group (train or test)."""
+    
+    print(prefix)
+    print(group)
+    print('\n')
     signals = [
         f'{signal}_{group}.txt' for signal in 
         ['total_acc_x', 'total_acc_y', 'total_acc_z',
@@ -19,7 +23,7 @@ def load_data(group, prefix=''):
     y = load_file(f"{prefix}{group}/y_{group}.txt") - 1  # Convert labels to zero-based
     return X, to_categorical(y)
 
-def load_dataset(prefix='UCI HAR Dataset/'):
+def load_dataset(prefix='../UCI HAR Dataset/'):
     """Load train and test datasets."""
     X_train, y_train = load_data('train', prefix)
     X_test, y_test = load_data('test', prefix)

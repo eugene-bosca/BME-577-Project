@@ -10,7 +10,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from utils import load_dataset
 
 
-base_path = "UCI HAR Dataset/"
+base_path = "../UCI HAR Dataset/"
 train_labels = base_path + "train/y_train.txt"
 test_labels = base_path + "test/y_test.txt"
 y_train = pd.read_csv(train_labels, header=None).values.ravel()
@@ -116,4 +116,3 @@ def cnn_2d_model(X_train, y_train, X_test, y_test):
 # Needed the raw data as it had the timestepped data
 X_train, y_train, X_test, y_test = load_dataset()
 cnn_2d_model(X_train, y_train, X_test, y_test)
-
