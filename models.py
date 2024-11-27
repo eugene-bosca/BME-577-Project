@@ -1,17 +1,24 @@
+import optuna
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import functools
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Conv1D, MaxPooling1D, Flatten
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Conv1D, Conv2D, MaxPooling2D, MaxPooling1D, Flatten, Reshape
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.utils import plot_model
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix
 from utils import load_dataset
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.optimizers import Adam
+
+np.random.seed(42)
 
 # # data preparation from project structure
-base_path = "UCI HAR Dataset/"
+base_path = "/Users/sophialollino/Downloads/human+activity+recognition+using+smartphones/UCI HAR Dataset/"
 # train_features = base_path + "train/X_train.txt"
 train_labels = base_path + "train/y_train.txt"
 # test_features = base_path + "test/X_test.txt"
@@ -109,31 +116,37 @@ def cnn_lstm_model(X_train, y_train, X_test, y_test):
     model = Sequential([
         Input(shape=(n_timesteps, n_features)),
         # CNN layers
-        Conv1D(filters=64, kernel_size=3, activation='relu'),
-        Conv1D(filters=64, kernel_size=3, activation='relu'),
-        Dropout(0.5),
+        Conv1D(filters=32, kernel_size=3, activation='relu'),
+        Conv1D(filters=32, kernel_size=3, activation='relu'),
+        Dropout(0.24714392468145407),
         MaxPooling1D(pool_size=2),
         # LSTM layer
-        LSTM(128, return_sequences=True),
-        Dropout(0.5),
-        LSTM(64, return_sequences=False),
-        Dropout(0.5),
-        Dense(64, activation='relu'),
+        LSTM(256, return_sequences=True),
+        Dropout(0.24714392468145407),
+        LSTM(256//2, return_sequences=False),
+        Dropout(0.24714392468145407),
+        Dense(128, activation='relu'),
         Dense(y_train.shape[1], activation='softmax')  # number of classes as output layer
     ])
 
-    # Compiling the model
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    optimizer = Adam(learning_rate=0.0009094598593981077)
+    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
     # Training the model
-    history = model.fit(X_train, y_train, epochs=10, batch_size=64, validation_data=(X_test, y_test))
-
+    history = model.fit(
+        X_train, y_train, 
+        epochs=30, 
+        batch_size=32, 
+        validation_data=(X_test, y_test),
+        verbose=0
+    )
     # Evaluating the model
     test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
     print(f"Test Accuracy: {test_accuracy:.2f}")
 
     # Printing classification report
     y_pred = np.argmax(model.predict(X_test), axis=1)
+    model.save('cnn_lstm_model.h5')
     target_names = [str(cls) for cls in label_encoder.classes_]
     print(classification_report(y_test_encoded, y_pred, target_names=target_names))
 
@@ -157,8 +170,127 @@ def cnn_lstm_model(X_train, y_train, X_test, y_test):
     plt.show()
 
 # lstm_model(X_train, y_train_one_hot, X_test, y_test_one_hot, y_test_encoded)
+def cnn_lstm_with_conv2d(X_train, y_train, X_test, y_test):
+    # Reshape data for Conv2D
+    n_timesteps, n_features, n_outputs = X_train.shape[1], X_train.shape[2], y_train.shape[1]
+    X_train = X_train.reshape((X_train.shape[0], n_timesteps, n_features, 1))
+    X_test = X_test.reshape((X_test.shape[0], n_timesteps, n_features, 1))
+
+    model = Sequential([
+        # Conv2D layers
+        Conv2D(filters=32, kernel_size=(3, 3), activation='relu', input_shape=(n_timesteps, n_features, 1)),
+        MaxPooling2D(pool_size=(1, 1)),
+        Dropout(0.3),
+        
+        Conv2D(filters=64, kernel_size=(3, 3), activation='relu'),
+        MaxPooling2D(pool_size=(2, 2)),
+        Dropout(0.3),
+        
+        # Flatten and reshape for LSTM
+        Flatten(),
+        Dense(128, activation='relu'),  # Optional Dense layer to reduce dimensions
+        Reshape((n_timesteps, -1)),  # Reshape to (batch_size, timesteps, features)
+        
+        # LSTM layers
+        LSTM(128, return_sequences=True),
+        Dropout(0.3),
+        LSTM(64, return_sequences=False),
+        Dropout(0.3),
+        
+        # Fully connected layers
+        Dense(128, activation='relu'),
+        Dense(n_outputs, activation='softmax')  # Output layer
+    ])
+
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+    # Training the model
+    history = model.fit(
+        X_train, y_train, 
+        epochs=10, 
+        batch_size=32, 
+        validation_data=(X_test, y_test),
+        verbose=1
+    )
+
+    # Evaluating the model
+    test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
+    print(f"Test Accuracy: {test_accuracy:.2f}")
+
+    # Classification report
+    y_pred = np.argmax(model.predict(X_test), axis=1)
+    target_names = [str(cls) for cls in label_encoder.classes_]
+    print(classification_report(np.argmax(y_test, axis=1), y_pred, target_names=target_names))
+
+    # Confusion matrix
+    cm = confusion_matrix(np.argmax(y_test, axis=1), y_pred)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
+    plt.show()
 
 # Needed the raw data as it had the timestepped data
-X_train, y_train, X_test, y_test = load_dataset()
-cnn_lstm_model(X_train, y_train, X_test, y_test)
+X_train, y_train, X_test, y_test = load_dataset(prefix = '/Users/sophialollino/Downloads/human+activity+recognition+using+smartphones/UCI HAR Dataset/')
+cnn_lstm_with_conv2d(X_train, y_train, X_test, y_test)
 
+
+def cnn_lstm_objective(trial):
+    # Hyperparameter suggestions
+    conv_filters = trial.suggest_categorical('conv_filters', [32, 64, 128])
+    kernel_size = trial.suggest_int('kernel_size', 3, 5)
+    lstm_units = trial.suggest_categorical('lstm_units', [64, 128, 256])
+    dense_units = trial.suggest_categorical('dense_units', [32, 64, 128])
+    dropout_rate = trial.suggest_float('dropout_rate', 0.2, 0.5)
+    learning_rate = trial.suggest_float('learning_rate', 1e-5, 1e-3, log=True)
+    batch_size = trial.suggest_categorical('batch_size', [32, 64, 128])
+    epochs = 10
+
+    n_timesteps, n_features, n_outputs = X_train.shape[1], X_train.shape[2], y_train.shape[1]
+
+    # Define the CNN-LSTM model
+    model = Sequential([
+        Input(shape=(n_timesteps, n_features)),
+        Conv1D(filters=conv_filters, kernel_size=kernel_size, activation='relu'),
+        Conv1D(filters=conv_filters, kernel_size=kernel_size, activation='relu'),
+        Dropout(dropout_rate),
+        MaxPooling1D(pool_size=2),
+        LSTM(lstm_units, return_sequences=True),
+        Dropout(dropout_rate),
+        LSTM(lstm_units // 2, return_sequences=False),
+        Dropout(dropout_rate),
+        Dense(dense_units, activation='relu'),
+        Dense(n_outputs, activation='softmax')  # number of classes as output layer
+    ])
+
+    # Compiling the model
+    optimizer = Adam(learning_rate=learning_rate)
+    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+
+    # Training the model
+    history = model.fit(
+        X_train, y_train, 
+        epochs=epochs, 
+        batch_size=batch_size, 
+        validation_data=(X_test, y_test),
+        verbose=0
+    )
+
+    # Evaluating the model
+    test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
+    return test_accuracy  # Optuna aims to maximize this
+
+# Run Optuna study
+study = optuna.create_study(direction='maximize')
+study.optimize(cnn_lstm_objective, n_trials=50)
+
+# Display the best parameters
+print("Best parameters:", study.best_params)
+print("Best accuracy:", study.best_value)
+
+# Visualizing the optimization results
+optuna.visualization.matplotlib.plot_optimization_history(study)
+plt.show()
+
+optuna.visualization.matplotlib.plot_param_importances(study)
+plt.show()
