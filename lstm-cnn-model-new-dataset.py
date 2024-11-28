@@ -4,7 +4,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv1D, MaxPooling1D, LSTM, Dense, Dropout, Input
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, LSTM, Dense, Dropout, Input, BatchNormalization
+from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.optimizers import Adam
 
 # Load the dataset
 data = pd.read_csv('/Users/sophialollino/Downloads/archive/Time_domain_subsamples/Time_domain_subsamples/KU-HAR_v1.0_raw_samples.csv', header=None)
@@ -30,24 +33,37 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # Define the CNN-LSTM model
 model = Sequential([
     Input(shape=(n_timesteps, n_axes)),
-    Conv1D(filters=64, kernel_size=3, activation='relu'),
-    Conv1D(filters=64, kernel_size=3, activation='relu'),
-    Dropout(0.5),
+    # CNN layers
+    Conv1D(filters=32, kernel_size=3, activation='relu'),
+    BatchNormalization(),
+    Conv1D(filters=32, kernel_size=3, activation='relu'),
+    BatchNormalization(),
+    Dropout(0.24714392468145407),
     MaxPooling1D(pool_size=2),
-    LSTM(128, return_sequences=True),
-    Dropout(0.5),
-    LSTM(64, return_sequences=False),
-    Dropout(0.5),
-    Dense(64, activation='relu'),
-    Dense(y_train.shape[1], activation='softmax')  # Number of classes
+    # LSTM layer
+    LSTM(256, return_sequences=True),
+    Dropout(0.24714392468145407),
+    LSTM(256//2, return_sequences=False),
+    Dropout(0.24714392468145407),
+    Dense(128, activation='relu'),
+    Dense(y_train.shape[1], activation='softmax')  # number of classes as output layer
 ])
 
-# Compile the model
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+optimizer = Adam(learning_rate=0.0009094598593981077)
 
-# Train the model
-history = model.fit(X_train, y_train, epochs=20, batch_size=64, validation_data=(X_test, y_test))
+model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+# Early stopping to prevent overfitting
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
+# Training the model
+history = model.fit(
+    X_train, y_train,
+    epochs=50,  # early stopping shoudl take effect before 50 epochs
+    batch_size=32,
+    validation_data=(X_test, y_test),
+    verbose=1,
+    callbacks=[early_stopping]
+)
 # Evaluate the model
 test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
 print(f"Test Accuracy: {test_accuracy:.2f}")
