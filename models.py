@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import functools
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Conv1D, Conv2D, MaxPooling2D, MaxPooling1D, Flatten, Reshape
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Input, Conv1D, Conv2D, MaxPooling2D, MaxPooling1D, Flatten, Reshape, BatchNormalization
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.utils import plot_model
 from sklearn.preprocessing import LabelEncoder
@@ -14,6 +14,7 @@ from utils import load_dataset
 from tensorflow.keras.callbacks import EarlyStopping
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import load_model
 
 np.random.seed(42)
 
@@ -117,7 +118,9 @@ def cnn_lstm_model(X_train, y_train, X_test, y_test):
         Input(shape=(n_timesteps, n_features)),
         # CNN layers
         Conv1D(filters=32, kernel_size=3, activation='relu'),
+        BatchNormalization(),
         Conv1D(filters=32, kernel_size=3, activation='relu'),
+        BatchNormalization(),
         Dropout(0.24714392468145407),
         MaxPooling1D(pool_size=2),
         # LSTM layer
@@ -131,14 +134,17 @@ def cnn_lstm_model(X_train, y_train, X_test, y_test):
 
     optimizer = Adam(learning_rate=0.0009094598593981077)
     model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    # Early stopping to prevent overfitting
+    early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
     # Training the model
     history = model.fit(
-        X_train, y_train, 
-        epochs=30, 
-        batch_size=32, 
+        X_train, y_train,
+        epochs=50,  # early stopping shoudl take effect before 50 epochs
+        batch_size=32,
         validation_data=(X_test, y_test),
-        verbose=0
+        verbose=1,
+        callbacks=[early_stopping]
     )
     # Evaluating the model
     test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
@@ -232,8 +238,13 @@ def cnn_lstm_with_conv2d(X_train, y_train, X_test, y_test):
 
 # Needed the raw data as it had the timestepped data
 X_train, y_train, X_test, y_test = load_dataset(prefix = '/Users/sophialollino/Downloads/human+activity+recognition+using+smartphones/UCI HAR Dataset/')
-cnn_lstm_with_conv2d(X_train, y_train, X_test, y_test)
+cnn_lstm_model(X_train, y_train, X_test, y_test)
+# Load the saved model
+# model = load_model('cnn_lstm_model.h5')
 
+# # Evaluate the model on the training data
+# train_loss, train_accuracy = model.evaluate(X_train, y_train, verbose=0)
+# print(f"Train Accuracy: {train_accuracy:.2f}")
 
 def cnn_lstm_objective(trial):
     # Hyperparameter suggestions
@@ -281,16 +292,16 @@ def cnn_lstm_objective(trial):
     return test_accuracy  # Optuna aims to maximize this
 
 # Run Optuna study
-study = optuna.create_study(direction='maximize')
-study.optimize(cnn_lstm_objective, n_trials=50)
+# study = optuna.create_study(direction='maximize')
+# study.optimize(cnn_lstm_objective, n_trials=50)
 
-# Display the best parameters
-print("Best parameters:", study.best_params)
-print("Best accuracy:", study.best_value)
+# # Display the best parameters
+# print("Best parameters:", study.best_params)
+# print("Best accuracy:", study.best_value)
 
-# Visualizing the optimization results
-optuna.visualization.matplotlib.plot_optimization_history(study)
-plt.show()
+# # Visualizing the optimization results
+# optuna.visualization.matplotlib.plot_optimization_history(study)
+# plt.show()
 
-optuna.visualization.matplotlib.plot_param_importances(study)
-plt.show()
+# optuna.visualization.matplotlib.plot_param_importances(study)
+# plt.show()
