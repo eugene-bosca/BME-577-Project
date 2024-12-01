@@ -1,27 +1,18 @@
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import Dense, Dropout, Input, Flatten, Conv2D, MaxPooling2D
+from tensorflow.keras.layers import Dense, Dropout, Input, Flatten, Conv2D, MaxPooling2D, BatchNormalization
+from tensorflow.keras.callbacks import ReduceLROnPlateau
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix
-from utils import load_dataset
+from utils import load_timestepped_data
 
-
-base_path = "../UCI HAR Dataset/"
-train_labels = base_path + "train/y_train.txt"
-test_labels = base_path + "test/y_test.txt"
-y_train = pd.read_csv(train_labels, header=None).values.ravel()
-y_test = pd.read_csv(test_labels, header=None).values.ravel()
-
-# encoding the activity labels
 label_encoder = LabelEncoder()
-y_train_encoded = label_encoder.fit_transform(y_train)
-y_test_encoded = label_encoder.transform(y_test)
 
-def cnn_2d_model(X_train, y_train, X_test, y_test):
+def cnn_2d_model(X_train, y_train, X_test, y_test, y_test_encoded):
     n_timesteps, n_features, n_outputs = X_train.shape[1], X_train.shape[2], y_train.shape[1]
 
     print(n_timesteps, n_features, n_outputs)
@@ -35,11 +26,14 @@ def cnn_2d_model(X_train, y_train, X_test, y_test):
         Input(shape=(n_timesteps, n_features, 1)),
         # CNN layers
         Conv2D(filters=32, kernel_size=(3, 3), activation='relu'),
+        BatchNormalization(),
         Conv2D(filters=64, kernel_size=(3, 3), activation='relu'),
+        BatchNormalization(),
         Dropout(0.5),
         MaxPooling2D(pool_size=(2, 2)),
         Flatten(),
         Dense(128, activation='relu'),
+        BatchNormalization(),
         Dropout(0.5),
         Dense(64, activation='relu'),
         Dense(y_train.shape[1], activation='softmax')  # Number of classes as output layer
@@ -48,8 +42,10 @@ def cnn_2d_model(X_train, y_train, X_test, y_test):
     # Compiling the model
     model.compile(optimizer= Adam(learning_rate=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
 
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6)
+    
     # Training the model
-    history = model.fit(X_train, y_train, epochs=10, batch_size=64, validation_data=(X_test, y_test))
+    history = model.fit(X_train, y_train, epochs=10, batch_size=64, validation_data=(X_test, y_test), callbacks=[reduce_lr])
 
     # Evaluating the model
     test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=0)
@@ -78,8 +74,6 @@ def cnn_2d_model(X_train, y_train, X_test, y_test):
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
     plt.show()
-
-    import os
 
     # Specify the folder where figures will be saved
     output_folder = "cnn_figures"
@@ -114,5 +108,5 @@ def cnn_2d_model(X_train, y_train, X_test, y_test):
 
 
 # Needed the raw data as it had the timestepped data
-X_train, y_train, X_test, y_test = load_dataset()
-cnn_2d_model(X_train, y_train, X_test, y_test)
+X_train, y_train, X_test, y_test, y_train_encoded, y_test_encoded = load_timestepped_data()
+cnn_2d_model(X_train, y_train, X_test, y_test, y_test_encoded)
