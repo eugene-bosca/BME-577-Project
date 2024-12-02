@@ -8,8 +8,10 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv1D, MaxPooling1D, LSTM, Dense, Dropout, Input, BatchNormalization
 from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix
+
 
 # Load the dataset
 data = pd.read_csv('Time_domain_subsamples/Time_domain_subsamples/KU-HAR_v1.0_raw_samples.csv', header=None)
@@ -94,7 +96,6 @@ y_pred = np.argmax(model.predict(X_test), axis=1)
 y_true = np.argmax(y_test, axis=1)
 
 # Classification report
-from sklearn.metrics import classification_report, confusion_matrix
 print(classification_report(y_true, y_pred))
 
 # Confusion matrix
